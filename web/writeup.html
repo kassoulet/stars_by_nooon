@@ -49,51 +49,51 @@
 <h3>1. Intro (title pictures and flower screens)</h3>
 <p>A scripted slideshow synchronised to the music position (order&lt;&lt;8 | row). Pictures are a 768-byte 6-bit palette plus 64000 pixels. They are never redrawn: the bitmap goes into VRAM with a black palette and the <i>fade</i> is done by scaling the palette every vsync (<code>pal*level&gt;&gt;8</code>, clamped), 129 frames in, hold, out. The four &ldquo;flower screens&rdquo; (one per member) composite a name sprite, a word sprite and a rotating 256&times;256 texture with colour 0 transparent.</p>
 <div class="shots"><figure><img class="px" src="img/intro1.png" alt="Picture fade" width="320" height="240" loading="lazy"><figcaption>Picture fade</figcaption></figure><figure><img class="px" src="img/intro2.png" alt="Flower screen" width="320" height="240" loading="lazy"><figcaption>Flower screen</figcaption></figure></div>
-<h3>2. E1: tunnel / flow plasma</h3>
+<h3>2. E1: Tunnel</h3>
 <p>Precomputed lookup table: for every screen pixel a 16-bit value built by walking concentric ellipses (radius <code>0x1400/(m+19)</code> gives the depth) with a sine table, first writer wins. Each frame two 256&times;256 textures (the second one reduced to 16 levels) are sampled at that table plus four scrolling offsets, summed to make the flowing tunnel. Scroll speed decelerates to zero around frame 0x124-0x208. 521 frames, palette fades in during the first 64.</p>
-<div class="shots"><figure><img class="px" src="img/e1.png" alt="E1" width="320" height="240" loading="lazy"><figcaption>E1</figcaption></figure></div>
-<h3>3. E2: environment-mapped, morphing 3D scene</h3>
+<div class="shots"><figure><img class="px" src="img/e1.png" alt="E1" width="320" height="240" loading="lazy"><figcaption>E1: Tunnel</figcaption></figure></div>
+<h3>3. E2: Wasp (environment-mapped morphing 3D scene)</h3>
 <p>Our 3D library (see below), 68 flat-shaded objects (the wasp parts) drawn with a spherical &ldquo;env map&rdquo; lookup (colour = a 256&times;256 image indexed by the face normal), over a still picture. Seven objects interpolate between 4 key poses, the camera interpolates through 9 key positions with a small sine wobble. A sprite blinks in the corner during a part of the path. 911 frames, starts from a white flash.</p>
 <p><b>Triangles:</b> the 68 meshes hold 3012 vertices and 5595 triangles in total (18-180 vertices and 24-336 triangles each; static counts, before any culling). Measured in the JS port: on average 42.6 of the 68 objects survive the bounding-sphere test per frame, which means about 2040 vertices transformed and 3791 triangles submitted, of which about 1480 (277 to 2217) pass the backface/depth test and are rasterized. See <a href="#numbers">3D scenes by the numbers</a>.</p>
-<div class="shots"><figure><img class="px" src="img/e2.png" alt="E2" width="320" height="240" loading="lazy"><figcaption>E2</figcaption></figure></div>
-<h3>4. Part B: spiky ball over a bump-mapped tunnel</h3>
+<div class="shots"><figure><img class="px" src="img/e2.png" alt="E2" width="320" height="240" loading="lazy"><figcaption>E2: Wasp</figcaption></figure></div>
+<h3>4. Part B: Spiky ball (over a bump-mapped tunnel)</h3>
 <p>A 685-vertex, 1366-face object drawn in shading mode 15 (texture + bump map + environment lighting), while the light angle moves each tick and the object flies on a parametric path over a pre-rendered tunnel background. Phases (hold, fly, fast spin) change at fixed tick counts; 2346 frames in all, then a fade-out.</p>
 <p><b>Triangles:</b> one mesh, 685 vertices and 1366 triangles (static). About 568 triangles per frame survive backface culling (measured: min 468, max 690), so roughly 42% of the mesh is drawn.</p>
-<div class="shots"><figure><img class="px" src="img/partb.png" alt="Part B" width="320" height="240" loading="lazy"><figcaption>Part B</figcaption></figure></div>
-<h3>5. Part C: warped picture show</h3>
+<div class="shots"><figure><img class="px" src="img/partb.png" alt="Part B" width="320" height="240" loading="lazy"><figcaption>B: Spiky ball</figcaption></figure></div>
+<h3>5. Part C: Warp (warped picture show)</h3>
 <p>Three pictures are stretched into 256&times;256 buffers. A ring of four curves (top, bottom, left, right edges) is computed from sine tables with per-stage amplitude and phase; it defines a warped quad. For every column the texture start and per-row step are derived, so each pixel is a texture lookup with 32-bit packed 8.8 coordinates. Stages change the ring radius, speeds and flip pictures every 66 frames; later stages tile and squeeze the picture into many small copies.</p>
-<div class="shots"><figure><img class="px" src="img/partc1.png" alt="Part C, wavy stage" width="320" height="240" loading="lazy"><figcaption>Part C, wavy stage</figcaption></figure><figure><img class="px" src="img/partc2.png" alt="Part C, close-up" width="320" height="240" loading="lazy"><figcaption>Part C, close-up</figcaption></figure></div>
+<div class="shots"><figure><img class="px" src="img/partc1.png" alt="Part C, wavy stage" width="320" height="240" loading="lazy"><figcaption>C: Warp, wavy stage</figcaption></figure><figure><img class="px" src="img/partc2.png" alt="Part C, close-up" width="320" height="240" loading="lazy"><figcaption>Part C, close-up</figcaption></figure></div>
 <h3>6. Voxel terrain + polar warp</h3>
 <p>A height map and a colour map (256&times;256) are rendered by a classic voxel ray caster: 256 vertical rays, 105 steps each, projecting height through a lookup table (<code>LUT[j][h]=190-min(189,(0x2f4+14h)/(j+9))</code>) into a 256&times;256 buffer. That buffer is then displayed through a polar map (angle/radius for each screen pixel, built by stepping from the centre for 4096 angles), so the landscape wraps around the screen centre like a planet. The camera drifts and the ray tables are wobbled with a sine each frame.</p>
 <div class="shots"><figure><img class="px" src="img/terrain.png" alt="Polar voxel terrain" width="320" height="240" loading="lazy"><figcaption>Polar voxel terrain</figcaption></figure></div>
-<h3>7. Part D: morphing head with animated bump texture</h3>
+<h3>7. Part D: Morphing head (animated bump texture)</h3>
 <p>A 529-vertex face object with 10 key frames morphs between them (weights from a table, 63 steps, 34 key indices), seen with environment shading. The texture is a 64&times;128 tile cross-faded between two resources in 8 frames and repeated across the 256&times;256 texture buffer, while the palette itself cross-fades between two ramps. The object moves along six path keys.</p>
 <p><b>Triangles:</b> 529 vertices and 968 triangles in the base pose (plus 10 key frames of 529 vertices each, which add no triangles). About 898 triangles per frame are rasterized (measured: 712 to 968) (most faces pass the test; I did not investigate why so few are culled, the port matches the original pixel for pixel).</p>
-<div class="shots"><figure><img class="px" src="img/partd.png" alt="Morphing head" width="320" height="240" loading="lazy"><figcaption>Morphing head</figcaption></figure></div>
+<div class="shots"><figure><img class="px" src="img/partd.png" alt="Morphing head" width="320" height="240" loading="lazy"><figcaption>D: Morphing head</figcaption></figure></div>
 <h3>8. Picture</h3>
 <p>A still picture (palette + 64000 pixels) faded in and out with the same palette-scaling routine as the intro (65 frames each way), used between the head and the bouncing ball.</p>
 <div class="shots"><figure><img class="px" src="img/picture.png" alt="Still picture" width="320" height="240" loading="lazy"><figcaption>Still picture</figcaption></figure></div>
-<h3>9. Part F: bouncing morphing ball</h3>
+<h3>9. Part F: Morphing env (bouncing morphing ball)</h3>
 <p>Sphere sprites on a ring were precomputed at start-up: 64 frames of 16 spheres rendered with the 3D library, rows 77-199 stored as run-length encoded streams (about 1.2 MB). The foreground is a 650-vertex morphing object using a different env map. A ball falls in, bounces 7 times at shrinking intervals and each bounce triggers a 63-tick colour flash; the ring plays frames <code>(t&gt;&gt;1)&amp;63</code> underneath. 1805 frames.</p>
 <p><b>Triangles:</b> the ball has 650 vertices and 1296 triangles (3 extra key frames); about 531 are rasterized per frame on average (0 before it falls into view, at most 785). The start-up precalculation draws 1024 spheres of 158 vertices and 316 triangles each (323,584 submitted, 92,634 rasterized, measured), once, not per frame.</p>
-<div class="shots"><figure><img class="px" src="img/partf.png" alt="Part F" width="320" height="240" loading="lazy"><figcaption>Part F</figcaption></figure></div>
-<h3>10. Text G: feedback-blur text</h3>
+<div class="shots"><figure><img class="px" src="img/partf.png" alt="Part F" width="320" height="240" loading="lazy"><figcaption>F: Morphing env</figcaption></figure></div>
+<h3>10. Part G: Zoom blur (feedback-blur text)</h3>
 <p>Two 320&times;200 byte buffers with values 0..31 that are zoom-blurred every frame: each output pixel is the average of its four neighbours, sampled with a 120/128 zoom around the centre. Random dots and sprites (the text bitmaps from one resource, flashed after each music row) are stamped into the feedback source, so they smear out into glowing trails. The palette is a 32-colour blue ramp (violet in the second variant, section 13). The inner loop is machine code generated at run time; we do the same arithmetic with exact per-byte carries.</p>
-<div class="shots"><figure><img class="px" src="img/textg1.png" alt="Text G" width="320" height="240" loading="lazy"><figcaption>Text G</figcaption></figure></div>
-<h3>11. Part H: three-layer feedback blur</h3>
+<div class="shots"><figure><img class="px" src="img/textg1.png" alt="Text G" width="320" height="240" loading="lazy"><figcaption>G: Zoom blur</figcaption></figure></div>
+<h3>11. Part H: Checkered zoom (three-layer feedback blur)</h3>
 <p>Three 320&times;200 layers are blurred and zoomed (factor 0x77/0x80, plus a small sine wave offset) every frame; stamp streams (skip/count run lists from three resources) paint the girl into the layers on selected music rows. Output is a checkerboard that alternates each frame: a lookup table <code>lut[L0,L2]</code> mixes two layers into a colour, the third is shown through a green/magenta ramp. 444 frames.</p>
-<div class="shots"><figure><img class="px" src="img/parth.png" alt="Part H" width="320" height="240" loading="lazy"><figcaption>Part H</figcaption></figure></div>
-<h3>12. Part I: stone torso and mirror</h3>
+<div class="shots"><figure><img class="px" src="img/parth.png" alt="Part H" width="320" height="240" loading="lazy"><figcaption>H: Checkered zoom</figcaption></figure></div>
+<h3>12. Part I: Torus mirror (stone torso and mirror)</h3>
 <p>Two morph objects: a statue torso in shading mode 2 whose environment map is a render target, and a spinning ribbon in mode 20/21 (warped texture mapping). A mirror image of the ribbon is drawn first into a 256&times;256 target which then serves as the environment map of the statue, giving real-time reflections. Wave functions on a subset of vertices move the ribbon; scripted by tick count (rises, spins, then two orbit phases). 2447 frames.</p>
 <p><b>Triangles:</b> torso 192 vertices / 384 triangles, ribbon 242 vertices / 459 triangles (329 of type &ldquo;warp&rdquo;, 130 of type &ldquo;2-attribute&rdquo;, per the notes). Measured average: about 484 triangles per frame (188 to 653) over 2.4 object draws per frame: the ribbon is drawn 1.7 times per frame on average (once, plus the mirror pass once the torso is shown), the torso 0.7 times.</p>
-<div class="shots"><figure><img class="px" src="img/parti.png" alt="Part I" width="320" height="240" loading="lazy"><figcaption>Part I</figcaption></figure></div>
-<h3>13. Text G, second variant</h3>
+<div class="shots"><figure><img class="px" src="img/parti.png" alt="Part I" width="320" height="240" loading="lazy"><figcaption>I: Torus mirror</figcaption></figure></div>
+<h3>13. Part G: Zoom blur 2 (second variant)</h3>
 <p>The same code as section 10 with a violet/pink palette, a different sprite table (17 steps) and four orbiting squares from sine tables of different frequency.</p>
-<div class="shots"><figure><img class="px" src="img/textg2.png" alt="Text G, violet" width="320" height="240" loading="lazy"><figcaption>Text G, violet</figcaption></figure></div>
-<h3>14. Part J: head over a feedback tunnel</h3>
+<div class="shots"><figure><img class="px" src="img/textg2.png" alt="Text G, violet" width="320" height="240" loading="lazy"><figcaption>G: Zoom blur 2</figcaption></figure></div>
+<h3>14. Part J: Feedback (head over a feedback tunnel)</h3>
 <p>The metallic head is a pre-shaded stream: a 256&times;256 environment map is read at an offset that scrolls with a sine, and the pixel stream (skip/count runs) selects which pixels belong to the head. Behind it, the previous frame is remapped through a 32-row palette-lookup table (to darken) and warped: <code>pix(y,x)=A[R[y]+D[x]]</code> with R and D sums of two sines scaled by an animator <i>P</i>; with P around 256 nothing moves, when P sweeps the picture folds into a tunnel. A strobe at the end accelerates until the head flickers every frame.</p>
 <p><b>Triangles:</b> none; this head is not a mesh, it is a pre-shaded pixel stream (no 3D library call).</p>
-<div class="shots"><figure><img class="px" src="img/partj1.png" alt="Tunnel warp" width="320" height="240" loading="lazy"><figcaption>Tunnel warp</figcaption></figure><figure><img class="px" src="img/partj2.png" alt="Head" width="320" height="240" loading="lazy"><figcaption>Head</figcaption></figure></div>
+<div class="shots"><figure><img class="px" src="img/partj1.png" alt="Tunnel warp" width="320" height="240" loading="lazy"><figcaption>J: Feedback</figcaption></figure><figure><img class="px" src="img/partj2.png" alt="Head" width="320" height="240" loading="lazy"><figcaption>Head</figcaption></figure></div>
 <h3>15. Credits</h3>
 <p>Series of full-screen pictures (member names, music, the STARS logo) shown only by moving the palette: black palette, copy the image to VRAM, fade in 65 frames, wait for the right music row, fade out. The picture order of the final two screens depends on the DOS clock minute parity.</p>
 <div class="shots"><figure><img class="px" src="img/credits1.png" alt="Credits" width="320" height="240" loading="lazy"><figcaption>Credits</figcaption></figure><figure><img class="px" src="img/credits2.png" alt="Final screen" width="320" height="240" loading="lazy"><figcaption>Final screen</figcaption></figure></div>
@@ -106,14 +106,14 @@
 </ul>
 <div class="tw"><table>
 <tr><th>Scene (mode)</th><th>Objects</th><th>Vertices / triangles per mesh (static)</th><th>Static total, before culling</th><th>Measured per frame</th></tr>
-<tr><td>E2 (3, no sort)</td><td>68 meshes</td><td>18-180 / 24-336 (e.g. 34/64, 134/264, 180/336, 168/306)</td><td>3012 v / 5595 tri</td><td>42.6 objects drawn, 2040 v transformed, 3791 tri submitted, <b>1479 rasterized</b> (277-2217); 911 frames</td></tr>
-<tr><td>Part B (15)</td><td>1</td><td>685 / 1366</td><td>685 v / 1366 tri</td><td>685 v, 1366 submitted, <b>568 rasterized</b> (468-690); 2346 frames</td></tr>
-<tr><td>Part D (15, morph)</td><td>1 (+10 key frames)</td><td>529 / 968</td><td>529 v / 968 tri</td><td>529 v, 968 submitted, <b>898 rasterized</b> (712-968); 2158 frames</td></tr>
-<tr><td>Part F ball (3, morph)</td><td>1 (+3 key frames)</td><td>650 / 1296</td><td>650 v / 1296 tri</td><td>650 v, 1296 submitted, <b>531 rasterized</b> (0-785); 1805 frames</td></tr>
-<tr><td>Part F start-up sprites (3)</td><td>16 x 64 frames</td><td>158 / 316</td><td>1024 draws = 161,792 v / 323,584 tri</td><td>measured once at init: <b>92,634 rasterized</b> (about 90 per sphere draw); not repeated per frame</td></tr>
-<tr><td>Part I torso (2)</td><td>1</td><td>192 / 384</td><td>192 v / 384 tri</td><td>drawn 0.7x per frame, about 125 rasterized per frame averaged over all frames (about 179 per draw)</td></tr>
-<tr><td>Part I ribbon (20, 21 for the mirror)</td><td>1</td><td>242 / 459 (329 warp type, 130 2-attr type, from the notes)</td><td>242 v / 459 tri</td><td>drawn 1.7x per frame, about 359 rasterized per frame (about 211 per draw)</td></tr>
-<tr><td>Part I total</td><td>2</td><td></td><td>434 v / 843 tri</td><td>2.4 draws, 546 v, 1049 submitted, <b>484 rasterized</b> (188-653); 2448 frames</td></tr>
+<tr><td>E2 Wasp (3, no sort)</td><td>68 meshes</td><td>18-180 / 24-336 (e.g. 34/64, 134/264, 180/336, 168/306)</td><td>3012 v / 5595 tri</td><td>42.6 objects drawn, 2040 v transformed, 3791 tri submitted, <b>1479 rasterized</b> (277-2217); 911 frames</td></tr>
+<tr><td>B Spiky ball (15)</td><td>1</td><td>685 / 1366</td><td>685 v / 1366 tri</td><td>685 v, 1366 submitted, <b>568 rasterized</b> (468-690); 2346 frames</td></tr>
+<tr><td>D Morphing head (15, morph)</td><td>1 (+10 key frames)</td><td>529 / 968</td><td>529 v / 968 tri</td><td>529 v, 968 submitted, <b>898 rasterized</b> (712-968); 2158 frames</td></tr>
+<tr><td>F Morphing env, ball (3, morph)</td><td>1 (+3 key frames)</td><td>650 / 1296</td><td>650 v / 1296 tri</td><td>650 v, 1296 submitted, <b>531 rasterized</b> (0-785); 1805 frames</td></tr>
+<tr><td>F Morphing env, start-up sprites (3)</td><td>16 x 64 frames</td><td>158 / 316</td><td>1024 draws = 161,792 v / 323,584 tri</td><td>measured once at init: <b>92,634 rasterized</b> (about 90 per sphere draw); not repeated per frame</td></tr>
+<tr><td>I Torus mirror, torso (2)</td><td>1</td><td>192 / 384</td><td>192 v / 384 tri</td><td>drawn 0.7x per frame, about 125 rasterized per frame averaged over all frames (about 179 per draw)</td></tr>
+<tr><td>I Torus mirror, ribbon (20, 21 for the mirror)</td><td>1</td><td>242 / 459 (329 warp type, 130 2-attr type, from the notes)</td><td>242 v / 459 tri</td><td>drawn 1.7x per frame, about 359 rasterized per frame (about 211 per draw)</td></tr>
+<tr><td>I Torus mirror, total</td><td>2</td><td></td><td>434 v / 843 tri</td><td>2.4 draws, 546 v, 1049 submitted, <b>484 rasterized</b> (188-653); 2448 frames</td></tr>
 </table></div>
 <p>Not in the table: the head of part J is a pre-shaded pixel stream (no polygon data), and the intro, E1, part C, the voxel terrain and the text and blur effects do not use the 3D library at all. Triangle counts of the original per scene are therefore small by modern standards: a frame never rasterizes more than about 2200 triangles (E2 peak) and typically 500 to 900, each filled by hand-written assembly at 70 Hz. Part F's morph ball takes 3 key frames, part D's head 10, and the per-vertex interpolation of the morph does not change the triangle count.</p>
 <p>Two caveats. The E2 value of 42.6 objects counts the bounding-sphere survivors (an object is skipped before transformation if its projected sphere is off screen or outside the depth range), so about 25 of 68 objects are skipped on an average frame. And the part D figure (93% of triangles pass) is what the port computes; the original was compared pixel by pixel, so the original does the same, but I did not investigate why so few triangles are culled there.</p>
