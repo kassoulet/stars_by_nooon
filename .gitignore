@@ -1,0 +1,7 @@
+__pycache__/
+*_tmp/
+re/ref/frames*/
+re/ref/*.snap
+re/ref/*.log
+re/image32.lst
+web/tools/out/

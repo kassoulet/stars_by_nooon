@@ -1,0 +1,7 @@
+# partb (web/parts/partb.js)
+Main script: `call 0x65ef` (init, 0x148), wait pos>0x1700, `call 0x6534` (loop), `call 0x65ad` (cleanup).
+* Resources: 15 palette (6-bit, faded by [0x678f]/64), 16 texture (gs), 17 bump map (ds; every byte (b-8)*2), 18 3D object (685 verts, 1366 faces, static), 19 background (64000 B, tunnel). Env map = makeEnvMap(ramp@0x6310, dl=0) with 0 -> 8.
+* Mode 15, dist 0x50, shift 1, camera at origin. Loop = vsync, phase script 0x6791, palette write if fading, flip (0x78905), render (0x79483). Timer callback 0x6905 (one tick/frame here): obj angles += (2,3,4) (+7 on the 2nd after t>=0x45a... phase>=4), global lighting angle += 0x21 (+0x14 in phase 4/5), path param p += 4 once t>=0x270 (pos from sin table, 0x6888).
+* Timeline (t = tick = frame): 1..0x3f fade in (palette written), 0x40..0x26f hold, 0x270.. object flies (phase 3), 0x45a phase 4, 0x644 phase 5, fade out from 0x82e (scale 0x3f - (t-0x82e)/4), `frame()` returns false at t=2346 (0x92a) after rendering; palette is then black.
+* Music: starts when pos>0x1700; it stops itself ~33.5 s later (music order 0x27 check never reached). Script: start at 0x1701, duration 2346 frames, next part (0x9d17 init) idles until 0x2700.
+* Verified: render buffer and faded palette identical to the original at ticks 3,4,5,10,20,100,300,639,641,700,1000,1500,1800,2100,2200,2300,2345; vs. harness VRAM frames identical (index PNGs) with a 0..2 tick offset (harness ticks jitter vs frames). Speed ~1.7 ms/frame in node.

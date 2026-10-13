@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STARS write-up: reverse engineering a 1995 demo</title>
+<link rel="stylesheet" href="site.css"></head>
+<body><main>
+<nav><a href="index.html">Home</a><a href="demo.html">Play the demo</a></nav>
+<h1>Porting STARS to JavaScript</h1>
+<p class="dim">How STARSv2.EXE (Noooon, 1995) was unpacked, understood and re-written, and how each effect works.</p>
+
+<h2>Part 1: Making of</h2>
+
+<h3>The executable</h3>
+<p>STARSv2.EXE is 1.24 MB: a tiny DOS stub, a 76 KB packed &ldquo;MZ image&rdquo;, then an overlay holding 58 resources (the table of contents sits in the last 696 bytes). The packing is two layers deep.</p>
+<ol>
+<li><b>Anti-debug decryptor.</b> The entry point reads the interrupt-controller mask (port 21h) and jumps into the middle of an instruction. A word-by-word decrypt loop runs first, then a second stage that hooks INT 1 and INT 3 and executes one operation per trap, swapping vectors on the fly. Tracing it by hand is miserable, so we emulated it: a Unicorn 16-bit harness with a hand-made interrupt table finished in about 540k instructions.</li>
+<li><b>PKLITE-style LZ.</b> The result is a classic LZ decompressor (&ldquo;Not enough memory$&rdquo;), about 1.7M emulated instructions, which expands to ~600 KB and relocates itself.</li>
+<li><b>PMODE v3.07 by Tran.</b> What is left is a real-mode loader that detects RAW/XMS/VCPI/DPMI, enables A20 and switches to 32-bit protected mode. We dumped the flat 32-bit image (<code>image32.bin</code>) where file offset equals address. The demo itself is one big 386 assembly program with the LCA player (v3.02, GUS + Sound Blaster) linked in.</li>
+</ol>
+
+<h3>Resources</h3>
+<p>The program opens <i>itself</i> and reads 12-byte table entries (id, offset from EOF, size). Many resources are compressed with a format whose header carries the magic <code>dlz</code> at bytes 6-8, preceded by a decoy <code>mov ah,4Ch / int 21h</code>. It is a PKLITE-like decoder with 16-bit LSB-first flag words; we rewrote it in Python (<code>re/dlz.py</code>) and extracted all 58 resources.</p>
+<ul>
+<li>768 bytes: a 6-bit VGA palette. 64768 bytes: palette + 320&times;200 chunky picture (title and credits screens). Raw 64000 or 65536 bytes: textures, maps and backgrounds without palette.</li>
+<li>Blobs starting with <code>42 21 1a 0f</code> (&ldquo;B!&rdquo;) are not images: they are 3D objects (vertices, faces, optional morph key frames).</li>
+<li>Resource 1 (780 KB) is a ProTracker-like MOD with <b>16 channels</b> and a 256-entry order table (155 used). Standard players read 128 orders only, so <code>mod2xm.py</code> converts it to an XM, orders kept 1:1 and Amiga-style left/right panning injected as 8xx effects. The demo script synchronises on <code>(order&lt;&lt;8)|row</code>, and so does the JS port, reading the position from libopenmpt (chiptune3).</li>
+</ul>
+
+<h3>Ground truth: the Unicorn harness</h3>
+<p>Instead of only reading disassembly, we run the <b>original code</b> in a Unicorn emulator (flat 32-bit model, a GDT with dynamic selectors, DPMI / disk / sound / PIT / VGA ports stubbed, a fake 70 Hz timer IRQ and a simulated music position). A snapshot after the 100-second global initialisation lets each part start in seconds. The harness dumps VRAM and palette as PNG frames. Each JS part is rendered headlessly in Node (<code>web/tools/render.mjs</code>) and compared pixel by pixel to the harness frames at many frame indices. Where the original uses random numbers, the RNG (<code>s^=0x78d47e5d; s*=0xd413d473; rol 18</code>) is reproduced, and the check is on shape rather than dots.</p>
+<p>The 3D engine (<code>lib3d.js</code>) is a port of the shared library at 0x78000 plus its polygon rasterizers: fixed-point matrices (.10), projection, object sort, and about 20 shading modes (flat env lookup, texture, bump, warp&hellip;). Rasterizers are tested by calling the original function in Unicorn and the JS one on random triangles and hashing the 64000-byte result (400/400 identical for most modes).</p>
+
+<h3>Work split</h3>
+<p>One agent per effect, each given the same brief: where the code is, how to run the harness, the conventions of the original (segment tricks, fixed-point formats, timing), and three deliverables: a faithful <code>web/parts/&lt;name&gt;.js</code>, a short note in <code>re/parts/&lt;name&gt;.md</code>, and a verification against harness frames. A main agent owned the shared engine, the music, the timeline (<code>script.js</code>) and the integration. Because every part is verified independently against the original, a wrong guess shows up as a pixel diff rather than as an impression that something looks off.</p>
+
+<h3>What is approximate or unverified</h3>
+<div class="note"><ul>
+<li>Part B (the notes call it &ldquo;partb-I&rdquo;): the second half is unverified against the original.</li>
+<li>Part F: only the first ~700 ticks compared; later bounces, fly-by and ending transcribed from disassembly.</li>
+<li>Most 3D parts: harness tick jitter limits long exact runs; they match at sampled frames and look identical otherwise.</li>
+<li>The text-mode ending of the original (a final screen at position 0x7dd) is not ported.</li>
+<li>Timing assumes one timer tick per frame (70 Hz); the original may run slower on a slow machine with a Sound Blaster, as its own NFO warns.</li>
+<li>Random dots in the text parts: the RNG seed depends on how many numbers earlier parts consumed, so the exact dot pattern differs.</li>
+<li>One warp rasterizer mode (<code>V_WARP256</code>) mismatches 2/400 random triangles when they extend below the 200-row screen; it is offscreen in practice.</li>
+<li>Sound: GUS / SB output of the original player is replaced by libopenmpt; mixing, interpolation and effects handling differ slightly from the LCA player.</li>
+</ul></div>
+
+<h2>Part 2: The effects, in demo order</h2>
+<p>All effects run at 70 Hz in mode 13h (320&times;200, 256 colours). The main program is a linear script: <i>init, loop, cleanup, wait for a music position</i>. Screenshots are 320&times;200 frames from the JS port.</p>
+<h3>1. Intro (title pictures and flower screens)</h3>
+<p>A scripted slideshow synchronised to the music position (order&lt;&lt;8 | row). Pictures are a 768-byte 6-bit palette plus 64000 pixels. They are never redrawn: the bitmap goes into VRAM with a black palette and the <i>fade</i> is done by scaling the palette every vsync (<code>pal*level&gt;&gt;8</code>, clamped), 129 frames in, hold, out. The four &ldquo;flower screens&rdquo; (one per member) composite a name sprite, a word sprite and a rotating 256&times;256 texture with colour 0 transparent.</p>
+<div class="shots"><figure><img class="px" src="img/intro1.png" alt="Picture fade" width="320" height="200" loading="lazy"><figcaption>Picture fade</figcaption></figure><figure><img class="px" src="img/intro2.png" alt="Flower screen" width="320" height="200" loading="lazy"><figcaption>Flower screen</figcaption></figure></div>
+<h3>2. E1: tunnel / flow plasma</h3>
+<p>Precomputed lookup table: for every screen pixel a 16-bit value built by walking concentric ellipses (radius <code>0x1400/(m+19)</code> gives the depth) with a sine table, first writer wins. Each frame two 256&times;256 textures (the second one reduced to 16 levels) are sampled at that table plus four scrolling offsets, summed to make the flowing tunnel. Scroll speed decelerates to zero around frame 0x124-0x208. 521 frames, palette fades in during the first 64.</p>
+<div class="shots"><figure><img class="px" src="img/e1.png" alt="E1" width="320" height="200" loading="lazy"><figcaption>E1</figcaption></figure></div>
+<h3>3. E2: environment-mapped, morphing 3D scene</h3>
+<p>Our 3D library (see below), 68 flat-shaded objects (the wasp parts) drawn with a spherical &ldquo;env map&rdquo; lookup (colour = a 256&times;256 image indexed by the face normal), over a still picture. Seven objects interpolate between 4 key poses, the camera interpolates through 9 key positions with a small sine wobble. A sprite blinks in the corner during a part of the path. 911 frames, starts from a white flash.</p>
+<div class="shots"><figure><img class="px" src="img/e2.png" alt="E2" width="320" height="200" loading="lazy"><figcaption>E2</figcaption></figure></div>
+<h3>4. Part B: spiky ball over a bump-mapped tunnel</h3>
+<p>A 685-vertex, 1366-face object drawn in shading mode 15 (texture + bump map + environment lighting), while the light angle moves each tick and the object flies on a parametric path over a pre-rendered tunnel background. Phases (hold, fly, fast spin) change at fixed tick counts; 2346 frames in all, then a fade-out.</p>
+<div class="shots"><figure><img class="px" src="img/partb.png" alt="Part B" width="320" height="200" loading="lazy"><figcaption>Part B</figcaption></figure></div>
+<h3>5. Part C: warped picture show</h3>
+<p>Three pictures are stretched into 256&times;256 buffers. A ring of four curves (top, bottom, left, right edges) is computed from sine tables with per-stage amplitude and phase; it defines a warped quad. For every column the texture start and per-row step are derived, so each pixel is a texture lookup with 32-bit packed 8.8 coordinates. Stages change the ring radius, speeds and flip pictures every 66 frames; later stages tile and squeeze the picture into many small copies.</p>
+<div class="shots"><figure><img class="px" src="img/partc1.png" alt="Part C, wavy stage" width="320" height="200" loading="lazy"><figcaption>Part C, wavy stage</figcaption></figure><figure><img class="px" src="img/partc2.png" alt="Part C, close-up" width="320" height="200" loading="lazy"><figcaption>Part C, close-up</figcaption></figure></div>
+<h3>6. Voxel terrain + polar warp</h3>
+<p>A height map and a colour map (256&times;256) are rendered by a classic voxel ray caster: 256 vertical rays, 105 steps each, projecting height through a lookup table (<code>LUT[j][h]=190-min(189,(0x2f4+14h)/(j+9))</code>) into a 256&times;256 buffer. That buffer is then displayed through a polar map (angle/radius for each screen pixel, built by stepping from the centre for 4096 angles), so the landscape wraps around the screen centre like a planet. The camera drifts and the ray tables are wobbled with a sine each frame.</p>
+<div class="shots"><figure><img class="px" src="img/terrain.png" alt="Polar voxel terrain" width="320" height="200" loading="lazy"><figcaption>Polar voxel terrain</figcaption></figure></div>
+<h3>7. Part D: morphing head with animated bump texture</h3>
+<p>A 529-vertex face object with 10 key frames morphs between them (weights from a table, 63 steps, 34 key indices), seen with environment shading. The texture is a 64&times;128 tile cross-faded between two resources in 8 frames and repeated across the 256&times;256 texture buffer, while the palette itself cross-fades between two ramps. The object moves along six path keys.</p>
+<div class="shots"><figure><img class="px" src="img/partd.png" alt="Morphing head" width="320" height="200" loading="lazy"><figcaption>Morphing head</figcaption></figure></div>
+<h3>8. Picture</h3>
+<p>A still picture (palette + 64000 pixels) faded in and out with the same palette-scaling routine as the intro (65 frames each way), used between the head and the bouncing ball.</p>
+<div class="shots"><figure><img class="px" src="img/picture.png" alt="Still picture" width="320" height="200" loading="lazy"><figcaption>Still picture</figcaption></figure></div>
+<h3>9. Part F: bouncing morphing ball</h3>
+<p>Sphere sprites on a ring were precomputed at start-up: 64 frames of 16 spheres rendered with the 3D library, rows 77-199 stored as run-length encoded streams (about 1.2 MB). The foreground is a 650-vertex morphing object using a different env map. A ball falls in, bounces 7 times at shrinking intervals and each bounce triggers a 63-tick colour flash; the ring plays frames <code>(t&gt;&gt;1)&amp;63</code> underneath. 1805 frames.</p>
+<div class="shots"><figure><img class="px" src="img/partf.png" alt="Part F" width="320" height="200" loading="lazy"><figcaption>Part F</figcaption></figure></div>
+<h3>10. Text G: feedback-blur text</h3>
+<p>Two 320&times;200 byte buffers with values 0..31 that are zoom-blurred every frame: each output pixel is the average of its four neighbours, sampled with a 120/128 zoom around the centre. Random dots and sprites (the text bitmaps from one resource, flashed after each music row) are stamped into the feedback source, so they smear out into glowing trails. The palette is a 32-colour blue ramp (violet in the second variant, section 13). The inner loop is machine code generated at run time; we do the same arithmetic with exact per-byte carries.</p>
+<div class="shots"><figure><img class="px" src="img/textg1.png" alt="Text G" width="320" height="200" loading="lazy"><figcaption>Text G</figcaption></figure></div>
+<h3>11. Part H: three-layer feedback blur</h3>
+<p>Three 320&times;200 layers are blurred and zoomed (factor 0x77/0x80, plus a small sine wave offset) every frame; stamp streams (skip/count run lists from three resources) paint the girl into the layers on selected music rows. Output is a checkerboard that alternates each frame: a lookup table <code>lut[L0,L2]</code> mixes two layers into a colour, the third is shown through a green/magenta ramp. 444 frames.</p>
+<div class="shots"><figure><img class="px" src="img/parth.png" alt="Part H" width="320" height="200" loading="lazy"><figcaption>Part H</figcaption></figure></div>
+<h3>12. Part I: stone torso and mirror</h3>
+<p>Two morph objects: a statue torso in shading mode 2 whose environment map is a render target, and a spinning ribbon in mode 20/21 (warped texture mapping). A mirror image of the ribbon is drawn first into a 256&times;256 target which then serves as the environment map of the statue, giving real-time reflections. Wave functions on a subset of vertices move the ribbon; scripted by tick count (rises, spins, then two orbit phases). 2447 frames.</p>
+<div class="shots"><figure><img class="px" src="img/parti.png" alt="Part I" width="320" height="200" loading="lazy"><figcaption>Part I</figcaption></figure></div>
+<h3>13. Text G, second variant</h3>
+<p>The same code as section 10 with a violet/pink palette, a different sprite table (17 steps) and four orbiting squares from sine tables of different frequency.</p>
+<div class="shots"><figure><img class="px" src="img/textg2.png" alt="Text G, violet" width="320" height="200" loading="lazy"><figcaption>Text G, violet</figcaption></figure></div>
+<h3>14. Part J: head over a feedback tunnel</h3>
+<p>The metallic head is a pre-shaded stream: a 256&times;256 environment map is read at an offset that scrolls with a sine, and the pixel stream (skip/count runs) selects which pixels belong to the head. Behind it, the previous frame is remapped through a 32-row palette-lookup table (to darken) and warped: <code>pix(y,x)=A[R[y]+D[x]]</code> with R and D sums of two sines scaled by an animator <i>P</i>; with P around 256 nothing moves, when P sweeps the picture folds into a tunnel. A strobe at the end accelerates until the head flickers every frame.</p>
+<div class="shots"><figure><img class="px" src="img/partj1.png" alt="Tunnel warp" width="320" height="200" loading="lazy"><figcaption>Tunnel warp</figcaption></figure><figure><img class="px" src="img/partj2.png" alt="Head" width="320" height="200" loading="lazy"><figcaption>Head</figcaption></figure></div>
+<h3>15. Credits</h3>
+<p>Series of full-screen pictures (member names, music, the STARS logo) shown only by moving the palette: black palette, copy the image to VRAM, fade in 65 frames, wait for the right music row, fade out. The picture order of the final two screens depends on the DOS clock minute parity.</p>
+<div class="shots"><figure><img class="px" src="img/credits1.png" alt="Credits" width="320" height="200" loading="lazy"><figcaption>Credits</figcaption></figure><figure><img class="px" src="img/credits2.png" alt="Final screen" width="320" height="200" loading="lazy"><figcaption>Final screen</figcaption></figure></div>
+
+<p class="dim" style="margin-top:3em">Sources: <code>re/NOTES.md</code> and <code>re/parts/*.md</code> in the project repository contain the per-part details (addresses, tables, constants).</p>
+</main></body></html>

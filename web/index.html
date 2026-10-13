@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STARS - a 1995 DOS demo, ported to JavaScript</title>
+<meta name="description" content="STARS: Wonders of the world, a 1995 MS-DOS demo by Noooon, reverse engineered and reimplemented in plain JavaScript.">
+<link rel="stylesheet" href="site.css"></head>
+<body><main>
+<h1>STARS <span class="dim">&ndash; Wonders of the world</span></h1>
+<p>A faithful JavaScript reimplementation of <b>STARSv2.EXE</b>, the MS-DOS demo by Noooon (1995): a 16-channel module soundtrack,
+env-mapped morphing 3D objects, a voxel terrain, feedback tunnels and a lot of palette tricks, all running in 320&times;200 / 256 colours.
+The original code was unpacked and reverse engineered, then each effect was ported to plain JS (canvas + a software rasterizer) and checked pixel by pixel against the original machine code.</p>
+<img class="px" src="img/hero.png" alt="Screenshot: a 3D wasp flying over a purple background" width="640" height="400">
+<p><a class="btn" href="demo.html">&#9654; Play the demo</a></p>
+<p>Needs a modern browser and sound. Read <a href="writeup.html"><b>how it was done (write-up)</b></a>, with a walkthrough of every effect.</p>
+<h2>Credits</h2>
+<ul>
+<li>Original demo: <b>Noooon</b>, 1995 (<i>STARS: Wonders of the world</i>, final release, per <code>STARS.NFO</code>). Groo: music, Bartie: 3D motion / vertices, Karl: system and special effects, Ra: script and pixels.</li>
+<li>Music player: LCA MOD player v3.02 by C&eacute;dric Bermond (1993-95). Protected-mode extender: PMODE v3.07 by Tran.</li>
+<li>Playback here: libopenmpt through chiptune3 (the 16-channel MOD is converted to XM).</li>
+<li>This port was produced by reverse engineering with AI assistance (Claude); all rights to the original demo belong to its authors.</li>
+</ul>
+</main></body></html>
