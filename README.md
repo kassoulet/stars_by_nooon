@@ -1,3 +1,5 @@
+<p align="center"><img src="web/img/57x4.png" alt="STARS" width="100%"></p>
+
 # STARS — JavaScript port of Noooon's 1995 MS-DOS demo
 
 A reverse-engineered reimplementation of **STARS: Wonders of the world** (`STARSv2.EXE`, Noooon, 1995) in plain JavaScript: all effects redrawn in a 320×200 indexed-colour canvas, original music played through libopenmpt.
