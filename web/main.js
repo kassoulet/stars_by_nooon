@@ -17,7 +17,7 @@ go.onclick = async () => {
   const ctx = { vga, res: res.get, pos: () => simPos ?? pos };
   const parts = await Promise.all(SCRIPT.map(async s => (await import(`./parts/${s.part}.js`))[s.x || 'default']));
   await res.preload(parts.flatMap(p => p.resources || []));
-  music.load('stars.xm');
+  music.load('stars.mod');
 
   const starts = [];                                     // tick at which each part started (learned while running)
   let i = -1, f = 0, done = false, last = performance.now(), acc = 0;

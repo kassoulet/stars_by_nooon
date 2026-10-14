@@ -17,9 +17,10 @@ assert src[952 + NORD:952 + NORD + 4] == b'16CH'
 pbase = 952 + NORD + 4; dbase = pbase + npat * 64 * NCH * 4
 PER = [856,808,762,720,678,640,604,570,538,508,480,453,428,404,381,360,339,320,302,285,269,254,240,226,214,202,190,180,170,160,151,143,135,127,120,113]
 # MOD period 428 (index 12) must be XM C-4 = note 49  => note = 37 + idx
-def note(p):
+# XM C-4 plays 8363 Hz, Amiga C-2 (period 428) 8287 Hz: sample finetune -20/128 semitone compensates (-15 cents)
+def note(p):                                              # equal-tempered, any period (the song uses 45..1076, well beyond the 36-note PT table)
     if p == 0: return 0
-    k = min(range(36), key=lambda i: abs(PER[i] - p)); return 37 + k
+    return max(1, min(96, round(49 - 12 * math.log2(p / 428))))
 out = bytearray(b'Extended Module: ')
 out += title.ljust(20, b'\0')[:20] + b'\x1a' + b'stars-mod2xm'.ljust(20, b'\0') + struct.pack('<H', 0x104)
 out += struct.pack('<IHHHHHHHH', 276, songlen, restart, NCH, npat, 31, 0, 6, 125)   # flags 0 = Amiga freq table
@@ -65,7 +66,7 @@ for s, (name, n, ft, vol, ls, ll) in enumerate(smp):
     d = bytearray(); prev = 0
     for v in data:                                        # signed 8-bit -> XM delta
         d.append((v - prev) & 255); prev = v
-    out += struct.pack('<IIIBbBBb', n, ls if loop else 0, ll if loop else 0, vol, sf * 16, 1 if loop else 0, 128, 0) + bytes([0]) + name
+    out += struct.pack('<IIIBbBBb', n, ls if loop else 0, ll if loop else 0, vol, sf * 16 - 20, 1 if loop else 0, 128, 0) + bytes([0]) + name
     out += d
 open(sys.argv[2], 'wb').write(out)
 print('patterns', npat, 'songlen', songlen, 'bytes', len(out))
