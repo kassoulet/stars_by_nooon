@@ -32,7 +32,7 @@ export default {
     for (let r = 0, dx = 0x100; r < 64; r++, dx += 0x3c) for (let c = 0; c < 64; c++) lut[r << 8 | c] = (((dx >> 8) << 4) | (c >> 2)) & 255;
     pal = new Uint8Array(768);
     S = { tk: 0, ph: 0, ox: 0, oy: 0, scale: 0, step: 4, cnt: 0x40, par: 0, dirty: 0 };
-    res36 = n => ctx.res(n);
+    res36 = n => ctx.res(n); ctx.vga.blend = true;   // checkerboard flips every tick: average two ticks like a CRT
   },
   frame(ctx, f) {
     const pos = ctx.pos();

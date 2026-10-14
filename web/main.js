@@ -17,13 +17,14 @@ go.onclick = async () => {
   const ctx = { vga, res: res.get, pos: () => simPos ?? pos };
   const parts = await Promise.all(SCRIPT.map(async s => (await import(`./parts/${s.part}.js`))[s.x || 'default']));
   await res.preload(parts.flatMap(p => p.resources || []));
-  music.load('stars.mod');
+  music.load('stars.xm');
 
   const starts = [];                                     // tick at which each part started (learned while running)
   let i = -1, f = 0, done = false, last = performance.now(), acc = 0;
   const step = () => {
     const nx = SCRIPT[i + 1];
-    if (nx && (i < 0 || done) && (ctx.pos() > nx.start || !nx.start)) { i++; f = 0; done = false; starts[i] = ticks; parts[i].init(ctx); }
+    if (nx && (i < 0 || done) && (ctx.pos() > nx.start || !nx.start)) { i++; f = 0; done = false; starts[i] = ticks; vga.blend = false; parts[i].init(ctx); }
+    vga.beginTick();
     if (i >= 0 && !done && parts[i].frame(ctx, f++) === false) done = true;
   };
   // Seek: parts are stateful, so rebuild by replaying from the start (or from now when going forward) on the MOD timeline, without drawing.

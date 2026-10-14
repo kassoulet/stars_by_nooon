@@ -2,7 +2,8 @@
 export const W = 320, H = 200;
 
 export class Vga {
-  constructor() { this.vram = new Uint8Array(W * H); this.pal = new Uint8Array(768); }   // pal: VGA 6-bit values (0..63)
+  constructor() { this.vram = new Uint8Array(W * H); this.pal = new Uint8Array(768); this.prev = new Uint8Array(W * H); this.blend = false; }
+  beginTick() { if (this.blend) this.prev.set(this.vram); }   // call before each 70 Hz frame; with `blend` the display averages the last two ticks (CRT persistence: parts that flip a checkerboard every tick)   // pal: VGA 6-bit values (0..63)
   clear(c = 0) { this.vram.fill(c); }
   // write pal entries like `out 3c8/3c9`: first colour index, array of 6-bit r,g,b triplets
   setPal(first, rgb6) { this.pal.set(rgb6, first * 3); }
@@ -12,7 +13,10 @@ export class Vga {
       const r = p[i * 3], g = p[i * 3 + 1], b = p[i * 3 + 2];   // 6 -> 8 bit like a real DAC (x255/63)
       lut[i] = 0xff000000 | (((b * 255 / 63) | 0) << 16) | (((g * 255 / 63) | 0) << 8) | ((r * 255 / 63) | 0);
     }
-    for (let i = 0; i < W * H; i++) out32[i] = lut[v[i]];
+    if (this.blend) {
+      const q = this.prev;
+      for (let i = 0; i < W * H; i++) { const a = lut[v[i]], b = lut[q[i]]; out32[i] = 0xff000000 | ((((a & 0xff00ff) + (b & 0xff00ff)) >> 1) & 0xff00ff) | ((((a & 0xff00) + (b & 0xff00)) >> 1) & 0xff00); }
+    } else for (let i = 0; i < W * H; i++) out32[i] = lut[v[i]];
   }
 }
 
