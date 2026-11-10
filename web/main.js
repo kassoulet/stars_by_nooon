@@ -3,10 +3,27 @@ import { SCRIPT } from './script.js';
 import { ChiptuneJsPlayer } from './lib/chiptune3.js';
 
 const go = document.getElementById('go'), cv = document.getElementById('c'), hud = document.getElementById('hud'), g = cv.getContext('2d');
+const stage = document.getElementById('stage'), crt = document.getElementById('crt'), crtc = document.getElementById('crtc'), SRC_ROWS = 200;
+try { crtc.checked = localStorage.crt === '1'; } catch {}
+// CRT overlay (display only): one scanline band per source row; stage height = k*200 device px so the band period is a whole number of device pixels (no moire).
+function crtLayout() {
+  const dpr = devicePixelRatio, k = Math.floor(Math.min(innerHeight, innerWidth * 3 / 4) * dpr / SRC_ROWS), ok = k >= 2;
+  crtc.disabled = !ok; crtc.parentElement.style.opacity = ok ? '' : .4;
+  crtc.parentElement.title = ok ? '' : 'window too small for the CRT effect';
+  const on = ok && crtc.checked;
+  crt.style.display = on ? 'block' : 'none';
+  stage.style.width = on ? `${Math.round(k * SRC_ROWS * 4 / 3) / dpr}px` : '';
+  stage.style.height = on ? `${k * SRC_ROWS / dpr}px` : '';
+  stage.style.aspectRatio = on ? 'auto' : '';
+  if (on) crt.style.cssText += `;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.12) 100%),linear-gradient(transparent 40%,rgba(0,0,0,.34));background-size:100% 100%,100% ${k / dpr}px`;
+}
+crtc.onchange = () => { try { localStorage.crt = crtc.checked ? '1' : '0'; } catch {} crtLayout(); crtc.blur(); };
+addEventListener('resize', crtLayout); document.addEventListener('fullscreenchange', crtLayout);
+matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', crtLayout);
 const img = g.createImageData(320, 200), px = new Uint32Array(img.data.buffer);
 const TICK = 1000 / 70;
 go.onclick = async () => {
-  go.style.display = 'none'; cv.style.display = 'block';
+  go.style.display = 'none'; stage.style.display = 'block'; crtLayout();
   const vga = new Vga(), res = new Resources(browserLoader);
   let pos = 0, time = 0, paused = false, seeking = false, simPos = null;   // simPos: timeline-driven pos while fast-forwarding
   const timeline = await (await fetch('timeline.json')).json();           // [seconds, order<<8|row], from the MOD simulation
@@ -48,7 +65,8 @@ go.onclick = async () => {
     if (e.code === 'Space' || e.key === 'k') { togglePause(); e.preventDefault(); }
     else if ((e.key === 'ArrowRight' || e.key === 'l') && !seeking) seekTo(time + 5);
     else if ((e.key === 'ArrowLeft' || e.key === 'j') && !seeking) seekTo(time - 5);
-    else if (e.key === 'f') document.fullscreenElement ? document.exitFullscreen() : cv.requestFullscreen();
+    else if (e.key === 'c' && !crtc.disabled) { crtc.checked = !crtc.checked; crtc.onchange(); }
+    else if (e.key === 'f') document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen();
   });
   const fmt = s => `${(s / 60) | 0}:${String(s % 60 | 0).padStart(2, '0')}`;
   const loop = now => {

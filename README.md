@@ -27,6 +27,10 @@ Click once to start (audio needs a gesture). Keys: **Space** pause · **←/→*
 
 Self-decrypting stub (emulated with Unicorn) → PKLITE-style LZ → flat 32-bit image (PMODE 3.07) → resource container with a custom `dlz` compressor. Each effect was disassembled, ported to JS and compared pixel by pixel with frames produced by the original code in the harness. See `re/NOTES.md`.
 
+## CRT option
+
+Optional scanline overlay in the web player (checkbox or key `C`, remembered, default off): a CSS overlay with one soft dark band per source row (200) and a faint vignette. The picture is then sized to a whole number of device pixels per source row (needs at least 2, otherwise the option is greyed out). Display only; pixel data is untouched.
+
 ## Known gaps
 
 - Part I's second half is not verified against the original; text-mode ending screen not ported.
