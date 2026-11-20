@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>STARS (Noooon, 1995) - asm snippets worth reading</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+  :root{--bg:#fff;--fg:#1d1d22;--mut:#666;--ac:#c4155a;--code:#f3f3f6;--bd:#d8d8e0}
+  @media (prefers-color-scheme:dark){:root{--bg:#0b0b10;--fg:#d8d8e0;--mut:#9a9aa8;--ac:#ff6a9a;--code:#17171f;--bd:#33333f}}
+  *{box-sizing:border-box}
+  body{margin:0 auto;max-width:62rem;padding:0 16px;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,sans-serif}
+  #wunav{display:flex;gap:16px;flex-wrap:wrap;padding-top:12px;padding-bottom:8px;border-bottom:1px solid var(--bd);font-size:14px}
+  a{color:var(--ac)}
+  h1,h2,h3,h4{line-height:1.25;margin-top:1.8em}
+  img{max-width:100%;height:auto;image-rendering:auto}
+  pre{background:var(--code);border:1px solid var(--bd);border-radius:4px;padding:10px 12px;overflow-x:auto;font-size:13px;line-height:1.4}
+  code{background:var(--code);padding:1px 4px;border-radius:3px;font-size:.92em;overflow-wrap:anywhere}
+  pre code{background:none;padding:0;overflow-wrap:normal}
+  table{border-collapse:collapse;display:block;overflow-x:auto;max-width:100%}
+  td,th{border:1px solid var(--bd);padding:4px 8px}
+  blockquote{border-left:3px solid var(--bd);margin-left:0;padding-left:14px;color:var(--mut)}
+  #TOC{font-size:14px}#TOC ul{padding-left:1.2em}
+  #TOC>ul{padding-left:0;list-style:none}
+  details#toc-box{margin:12px 0}
+  </style>
+</head>
+<body>
+<nav id="wunav"><a href="../index.html">&larr; the demo</a> <a href="WRITEUP-asm.html">asm</a> <a href="WRITEUP-effects.html">effects</a> <a href="https://github.com/kassoulet/stars_by_nooon">README on GitHub</a></nav>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#stars-noooon-1995---asm-snippets-worth-reading"
+id="toc-stars-noooon-1995---asm-snippets-worth-reading">STARS (Noooon,
+1995) - asm snippets worth reading</a>
+<ul>
+<li><a
+href="#1-four-pixels-per-iteration-64-kb-addressing-that-wraps-for-free-tunnel-0x12662"
+id="toc-1-four-pixels-per-iteration-64-kb-addressing-that-wraps-for-free-tunnel-0x12662">1.
+Four pixels per iteration, 64 KB addressing that wraps for free (tunnel,
+0x12662)</a></li>
+<li><a
+href="#2-run-length-fill-using-the-bits-of-the-count-voxel-terrain-0x12cb0x12f7"
+id="toc-2-run-length-fill-using-the-bits-of-the-count-voxel-terrain-0x12cb0x12f7">2.
+Run-length fill using the bits of the count (voxel terrain,
+0x12cb..0x12f7)</a></li>
+<li><a
+href="#3-self-generated-blur-code-one-block-per-4-pixel-group-feedback-text-0x13922"
+id="toc-3-self-generated-blur-code-one-block-per-4-pixel-group-feedback-text-0x13922">3.
+Self-generated blur code, one block per 4-pixel group (feedback text,
+0x13922)</a></li>
+<li><a
+href="#4-a-decompressor-whose-bit-reader-is-a-shrdecjae-triple-resource-dlz-0x4ad47"
+id="toc-4-a-decompressor-whose-bit-reader-is-a-shrdecjae-triple-resource-dlz-0x4ad47">4.
+A decompressor whose bit reader is a
+<code>shr</code>/<code>dec</code>/<code>jae</code> triple (resource
+<code>dlz</code>, 0x4ad47)</a></li>
+<li><a
+href="#5-packing-a-bilinear-texture-coordinate-with-shld-warped-picture-0x9c81"
+id="toc-5-packing-a-bilinear-texture-coordinate-with-shld-warped-picture-0x9c81">5.
+Packing a bilinear texture coordinate with <code>shld</code> (warped
+picture, 0x9c81)</a></li>
+<li><a href="#6-a-tiny-prng-0x4af10" id="toc-6-a-tiny-prng-0x4af10">6. A
+tiny PRNG (0x4af10)</a></li>
+<li><a href="#what-is-not-covered" id="toc-what-is-not-covered">What is
+<em>not</em> covered</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="stars-noooon-1995---asm-snippets-worth-reading">STARS (Noooon,
+1995) - asm snippets worth reading</h1>
+<p><code>STARSv2.EXE</code> is a real-mode self-decrypting stub -&gt;
+PKLITE-style LZ -&gt; PMODE 3.07 -&gt; a <strong>flat 32-bit
+image</strong> (<code>re/image32.bin</code>, dumped by
+<code>re/emu_unpack.py</code> under Unicorn). Addresses below are
+offsets in that image (the same numbers appear as the <code>0x...</code>
+addresses in <code>re/NOTES.md</code> and <code>re/parts/*.md</code>;
+code references such as <code>mov eax, ds:0x11b24</code> are absolute
+within it). Listings were produced with
+<code>objdump -D -b binary -mi386 -Mintel</code> on
+<code>re/image32.bin</code> (capstone was not installed on the machine
+used for this write-up; <code>re/image32.lst</code> is the older
+capstone linear sweep). Only code that is described in the
+reverse-engineering notes and ported in <code>web/parts/*.js</code> is
+shown.</p>
+<p>The demo is a 1995 486/Pentium VGA mode 13h production: no MMX, no
+FPU in the effect loops, everything integer. 16-bit operand-size tricks
+are everywhere (<code>bx</code>, <code>si</code>, <code>di</code>,
+<code>dx</code> used as 64 KB wrap-around addresses,
+<code>fs:[bx+di]</code> with 32-bit segment bases), a habit inherited
+from real mode.</p>
+<hr />
+<h2
+id="1-four-pixels-per-iteration-64-kb-addressing-that-wraps-for-free-tunnel-0x12662">1.
+Four pixels per iteration, 64 KB addressing that wraps for free (tunnel,
+0x12662)</h2>
+<p>The first effect after the intro (<code>e1</code>, "flow tunnel")
+runs this inner loop over 63040 pixels (<code>ecx = 0x3d90</code>
+iterations x 4 pixels):</p>
+<pre><code>12644: mov edi, 0xa0000            ; VRAM (minus the DPMI base in [0x17620])
+1265d: mov ecx, 0x3d90
+12662: mov ebx, [ebp+4]            ; two precomputed table words = pixels 2,3
+12665: mov al, gs:[bx+si]          ; texture 1, low word of ebx  (si = scroll offset)
+12669: shr ebx, 0x10
+1266c: mov ah, gs:[bx+si]          ; texture 1, high word
+12670: and bl, 0xfe
+12673: add ax, fs:[bx+di]          ; texture 2 (word!) added to both pixels at once
+12678: shl eax, 0x10               ; park the two pixels in the high half
+1267b: mov ebx, [ebp]              ; pixels 0,1
+1267e: mov al, gs:[bx+si]
+12682: shr ebx, 0x10
+12685: add ebp, 8
+12688: mov ah, gs:[bx+si]
+1268c: and bl, 0xfe
+1268f: add ax, fs:[bx+di]
+12694: mov [edx], eax              ; one 32-bit store = 4 pixels
+12696: add edx, 4
+12699: dec cx
+1269b: jne 0x12662</code></pre>
+<p>Why it is nice:</p>
+<ul>
+<li><strong>Table-driven</strong>: the 64 K-entry table
+(<code>tbl</code>, one 16-bit word per screen pixel, built in init from
+a polar map: low byte = depth, high byte = angle) is read as a
+<em>dword</em> holding two pixels, so a single load feeds two texture
+fetches via <code>shr ebx,16</code>.</li>
+<li><strong>Offsets are 16-bit sums</strong>: the scroll offsets
+<code>si</code>/<code>di</code> are added with <code>bx</code> inside
+the addressing mode; <code>bx+si</code> wraps at 64 KB because
+<code>bx</code> is used as a 16-bit register, so the texture tiles
+seamlessly with no <code>and</code>.</li>
+<li><strong>Two textures blended with one 16-bit add</strong>: the
+second layer is a word (two pixels) read from <code>fs:[bx+di]</code>
+and added to <code>ax</code> (two pixels). The <code>and bl,0xfe</code>
+aligns it, and the <em>same</em> second-layer word is shared by both
+pixels of a pair (this is visible in the JS port, <code>pair()</code> in
+<code>web/parts/e1.js</code>, and is a feature of the original, not a
+bug). The second texture is <code>(res30[i] &amp; 15) &lt;&lt; 4</code>
+(built in init).</li>
+</ul>
+<p><code>web/parts/e1.js</code> reproduces it with the same per-pair
+semantics (521/521 frames identical to the Unicorn harness, index and
+palette, <code>re/parts/e1.md</code>).</p>
+<hr />
+<h2
+id="2-run-length-fill-using-the-bits-of-the-count-voxel-terrain-0x12cb0x12f7">2.
+Run-length fill using the bits of the count (voxel terrain,
+0x12cb..0x12f7)</h2>
+<p>The polar voxel terrain draws, for each ray, a vertical run of one
+colour whenever the new horizon <code>cl</code> exceeds the previous one
+<code>ch</code>:</p>
+<pre><code>12c0: mov bl, es:[edx]             ; height  (bh = depth step, so bx = depth&lt;&lt;8 | height)
+12c3: mov cl, fs:[bx]              ; screen height from the 211x256 LUT
+12c7: cmp cl, ch                   ; ch = highest row so far
+12c9: jbe 0x12f9                   ; hidden -&gt; nothing to draw
+12cb: sub cl, ch                   ; run length
+12cd: mov al, gs:[edx]             ; colour map
+12d0: add ch, cl
+12d2: shr cl, 1
+12d4: jae 0x12dd
+12d6: mov [edi], al                ; bit 0 set: one byte
+12d8: lea edi, [edi+1]             ; (lea: does not touch the flags)
+12db: je  0x12f9                   ; ZF still comes from the shr -&gt; run was 1
+12dd: mov ah, al
+12df: shr cl, 1
+12e1: jae 0x12eb
+12e3: mov [edi], ax                ; bit 1 set: one word
+12e6: lea edi, [edi+2]
+12e9: je  0x12f9
+12eb: push ax / push ax / pop eax  ; replicate the colour into all 4 bytes
+12f0: mov [edi], eax               ; remaining count/4 dwords
+12f2: add edi, 4
+12f5: dec cl
+12f7: jne 0x12f0</code></pre>
+<p>Why it is clever: instead of <code>rep stosb</code> (slow start-up on
+a 486/Pentium for short runs, which most are) or a loop per byte, the
+run length is consumed <strong>bit by bit</strong>: bit 0 -&gt; one byte
+store, bit 1 -&gt; one word store, the rest -&gt; dword stores.
+<code>shr</code> leaves the shifted-out bit in CF and the "result is
+zero" in ZF, and the stores use <code>lea</code> for the pointer advance
+specifically because <code>lea</code>, unlike <code>add</code>, leaves
+the flags alone, so the <code>je</code> that follows tests the
+<em>shift</em>, not the pointer. The whole fill has no multiplication
+and no divide.</p>
+<p>The depth/height-to-screen LUT feeding <code>cl</code> is itself
+built by a short routine (0x10d6) with a saturating clamp written in two
+instructions:</p>
+<pre><code>10e6: mov eax, esi / cdq / idiv ebp   ; (0x2f4 + 14*h) / (depth+9)
+10eb: cmp ax, 0xbd
+10ef: jbe 0x10f3
+10f1: mov al, 0xbd                    ; min(189, ...)
+10f3: neg al
+10f5: add al, 0xbe                    ; 190 - min(189, ...)  (reverses the axis for free)</code></pre>
+<p>The ray loop advances its map address by <strong>a 16-bit delta
+table</strong> (<code>add dx, [ebp*2+0xcc6]</code> at 0x12fc):
+<code>T[i]</code> stores <code>dy*256+dx</code> already differenced
+(<code>T[i] -= T[i-1]</code> in the ripple setup), so the walk along a
+ray, including the sinusoidal "ripple" bend, costs one 16-bit add and
+wraps on the 256x256 map by itself
+(<code>dx = (dx + T[n]) &amp; 0xffff</code> in
+<code>web/parts/terrain.js</code>).</p>
+<hr />
+<h2
+id="3-self-generated-blur-code-one-block-per-4-pixel-group-feedback-text-0x13922">3.
+Self-generated blur code, one block per 4-pixel group (feedback text,
+0x13922)</h2>
+<p>The "NOOON / BRING YOUR BEAUTY FAMILY" parts (<code>textg</code>,
+<code>parth</code>) are a feedback blur with a slow zoom. Instead of a
+general loop, init <strong>writes the loop out as straight-line
+code</strong>, one block per group of four pixels, with the zoomed
+source offsets burned in as immediates:</p>
+<pre><code>13967: mov edx, 0x10000 / call alloc ; 64 KB buffer for code, address in [0x13040]
+139a2: mov ebx, [edx]               ; source column x&#39; of group k  (table 0x12814)
+139a7: mov ax, 0x868b / stosw       ; emits  8b 86 &lt;disp32&gt;   = mov eax, [esi + x&#39;-1]
+139ad: lea eax,[ebx-1] / stosd
+139b1: mov ax, 0xae8b / stosw       ; emits  8b ae &lt;disp32&gt;   = mov ebp, [esi + x&#39;+1]
+139b7: lea eax,[ebx+1] / stosd
+139bb: mov ax, 0xc503 / stosw       ; emits  03 c5            = add eax, ebp
+   ... same for [esi + x&#39;-0x140] and [esi + x&#39;+0x140] ...
+139e7: mov al, 0xc1 / stosb ; mov ax,0x2e8 / stosw    ; emits c1 e8 02 = shr eax, 2
+139f0: mov ax, 0xc223 / stosw                         ; emits 23 c2    = and eax, edx (0x1f1f1f1f)
+139f6: mov ax, 0x8389 / stosw ; mov eax, ecx / stosd  ; emits 89 83 &lt;4k&gt; = mov [ebx + 4k], eax  (VRAM)
+139ff: mov al, 0xab / stosb                           ; emits ab        = stosd (same value -&gt; next buffer)
+13a02: add ecx, 4 / cmp ecx, 0x140 / jne 0x139a2      ; 80 groups per row
+13a0d: mov al, 0xc3 / stosb                           ; ret</code></pre>
+<p>and the caller (0x13579..0x135b2) just runs the generated routine
+once per output row:</p>
+<pre><code>13594: imul esi, [ecx*4+0x12d14], 0x140   ; source row (zoomed: ((y-100)*120&gt;&gt;7)+100)
+1359f: add  esi, [0x13038]                ; + source buffer
+135a5: call [0x13040]                     ; generated row routine
+135ab: add  ebx, 0x140 / dec ecx / jns 0x13594
+135b4: ... xchg [0x1303c], eax ... swap source/destination buffers</code></pre>
+<p>Why it is clever:</p>
+<ul>
+<li>every neighbour address (left, right, up, down for a <em>scaled</em>
+source column) is an <strong>immediate</strong>, so the zoom costs zero
+arithmetic in the loop: the whole per-row work is four dword loads,
+three adds, a shift, a mask, and two stores, per four pixels. The column
+zoom table (<code>((x-160)*120+64)&gt;&gt;7)+160</code>, 80 entries)
+exists only at generation time.</li>
+<li>the four pixels are blurred <strong>in one 32-bit register</strong>:
+<code>(a+b+c+d)&gt;&gt;2</code> computed on whole dwords, then
+<code>&amp; 0x1f1f1f1f</code>. The mask throws away the carries that
+leaked from one byte into its neighbour and the bits shifted in from the
+next byte (pixel values stay 0..31, which is why the palette has only 32
+colours here). The JS port keeps this exactly
+(<code>rd(...)+rd(...)+... &gt;&gt;&gt; 2) &amp; 0x1f1f1f1f</code> in
+<code>web/parts/textg.js</code>).</li>
+<li>the store goes to VRAM (<code>mov [ebx+4k],eax</code>) and, through
+a trailing <code>stosd</code> with <code>edi = the other buffer</code>,
+to the feedback buffer at the same time: one result, no VRAM read-back
+(presumably the reason: VRAM reads were slow on that hardware).</li>
+<li>the code buffer is 64 KB, the generated routine is about 80 x 42
+bytes (this is my arithmetic from the emitted bytes:
+6+6+2+6+2+6+2+3+2+6+1 per block), plus a <code>ret</code>.</li>
+</ul>
+<hr />
+<h2
+id="4-a-decompressor-whose-bit-reader-is-a-shrdecjae-triple-resource-dlz-0x4ad47">4.
+A decompressor whose bit reader is a
+<code>shr</code>/<code>dec</code>/<code>jae</code> triple (resource
+<code>dlz</code>, 0x4ad47)</h2>
+<p>All 58 resources are in the EXE's overlay, most of them packed with a
+custom LZ ("dlz", with a 17-byte header whose first six bytes decode as
+<code>mov ah,4c / int 21</code> as a decoy). The decoder reads flag bits
+LSB-first from a 16-bit word. Every bit fetch is the same five
+instructions:</p>
+<pre><code>4ad5f: shr bp, 1             ; next flag bit -&gt; CF
+4ad62: dec dl                ; bits left in the word (dec keeps CF)
+4ad64: jne 0x4ad6e
+4ad66: mov dl, 0x10          ; reload:
+4ad68: mov bp, [esi]         ;   next 16 flag bits
+4ad6b: lea esi, [esi+2]      ;   (mov/lea keep CF too)
+4ad6e: jae 0x4ad73           ; CF=0 -&gt; match, CF=1 -&gt; literal
+4ad70: movsb                 ; literal byte
+4ad71: jmp 0x4ad5f</code></pre>
+<p>The trick is that <strong>CF survives</strong> <code>dec</code>, the
+<code>mov</code> reload and the <code>lea</code> pointer bump, so the
+refill logic sits <em>between</em> the shift and the branch that uses
+its carry with no <code>pushf</code>/<code>popf</code> and no extra
+bit-count compare. Match decoding then builds the offset high byte with
+<code>rcl bh,1</code> in a <code>loop</code> (0x4adcc/0x4adce), and
+copies with <code>lea esi,[edi+ebx]</code> / <code>rep movsb</code>
+where <code>bh</code> starts at <code>0xff</code>, so the displacement
+is a negative 16-bit offset for free (<code>0x4add5</code>). The end
+marker is offset <code>-1</code> with a clear flag (0x4ad9a:
+<code>cmp bh,bl</code>). <code>re/dlz.py</code> is a Python
+transcription of this decoder, used by <code>re/extract.py</code> to
+extract the resources.</p>
+<hr />
+<h2
+id="5-packing-a-bilinear-texture-coordinate-with-shld-warped-picture-0x9c81">5.
+Packing a bilinear texture coordinate with <code>shld</code> (warped
+picture, 0x9c81)</h2>
+<p><code>partc</code> shows three pictures through a quad warped by four
+sinusoidally wobbling curves. The inner loop produces two pixels per
+iteration and keeps a texture position as a single 32-bit word
+<code>X&lt;&lt;16 | Y</code> (8.8 | 8.8):</p>
+<pre><code>9c81: mov eax, [ecx*8+0x8a30]    ; running &quot;column start&quot; (X&lt;&lt;16|Y packed)
+9c88: mov ebx, [ecx*8+0x8f30]    ; per-row step of that column
+9c8f: add eax, ebx
+9c91: mov [ecx*8+0x8a30], eax    ; store back: the column state is advanced in place
+9c98: add eax, ebp               ; + running row offset
+9c9a: add ebp, esi               ;   which itself advances by a per-pixel step (second order)
+9c9c: mov bl, ah                 ; Y integer byte
+9c9e: shld ebx, eax, 8           ; shift it up and pull in X integer byte (bits 31..24)  -&gt; bx = Y8&lt;&lt;8 | X8
+9ca2: mov eax, [ecx*8+0x8a34]    ; next pixel of the pair (second column array)
+9ca9: mov dl, fs:[bx]            ; texel
+   ...
+9cc7: mov dh, fs:[bx]
+9ccc: mov [edi], dx              ; two pixels, one store</code></pre>
+<p>Why it is nice: the texture address <code>(Y8&lt;&lt;8)|X8</code>
+needs bytes from <em>two different halves</em> of the packed word;
+<code>mov bl,ah</code> + <code>shld ebx,eax,8</code> assembles them in
+two instructions with no masks and no shift-and-or, and
+<code>fs:[bx]</code> addressing then wraps the 256x256 picture (built in
+init by cropping the 320x200 picture to 256 columns and stretching the
+rows to 256) for free. The position is <em>linear in three terms</em>
+(column start + row offset + a per-pixel step that is itself
+accumulated, <code>add ebp,esi</code>), so there is <strong>no
+multiplication in the loop</strong>; the <code>idiv</code>s that compute
+the steps (<code>/200</code>, see 0x9b57, 0x9b8e) run once per column or
+row, not per pixel. The port (<code>render()</code> in
+<code>web/parts/partc.js</code>) keeps the 32-bit wrap-around and the
+<code>shr</code>-versus-<code>sar</code> details.</p>
+<p>The four curves themselves come from one routine,
+<code>0x9a02</code>, called four times with only the angle step
+(<code>ebp</code>), start angle (<code>edx</code>), count and
+destination changed:</p>
+<pre><code>99a3: mov edi, 0x6990 / mov ebp, 0x333333     ; top edge,    +3.2 table steps per point
+99be: mov ebp, 0xffcccccd  / mov edi, 0x7390  ; bottom edge, negative step
+99de: mov ebp, 0x51eb85    / mov edi, 0x83d0  ; right edge
+99f8: mov ebp, 0xffae147b  / mov edi, 0x7d90  ; left edge
+9a02: shl edx, 0x14 ... add edx, ebp          ; 12-bit angle in the top bits, step in 0.20 fixed point</code></pre>
+<p>The angle is kept in the top 12 bits of a 32-bit register
+(<code>shl edx,0x14</code>) so a single <code>add edx,ebp</code> both
+steps it and wraps it at one turn; <code>shr esi,0x14</code> recovers
+the table index. (Arithmetic from the immediates: 0x333333 / 2^32 * 4096
+= 3.2 table steps per point, x 320 points = 1024 steps = a quarter turn,
+which agrees with "quarter circles" in
+<code>re/parts/partc.md</code>.)</p>
+<hr />
+<h2 id="6-a-tiny-prng-0x4af10">6. A tiny PRNG (0x4af10)</h2>
+<pre><code>4af13: mov eax, [0x4af35]       ; seed (stored in the code segment, right after the ret)
+4af18: xor eax, 0x78d47e5d
+4af1d: imul eax, eax, 0xd413d473
+4af23: rol eax, 18
+4af26: mov [0x4af35], eax
+4af2b: xor edx, edx / pop ebx / div ebx      ; % n
+4af30: mov eax, edx</code></pre>
+<p>xor-multiply-rotate: three cheap instructions give an acceptable
+generator, and the <code>div</code> by the caller's limit is the modulo.
+It is used only by the text parts (random dots,
+<code>rand(100)+50</code>, <code>rand(160)+80</code>,
+<code>rand(256)&amp;1</code>, and one <code>rand(4000)</code> whose
+result is thrown away but whose RNG advance matters for the dot
+sequence). The seed depends on how many random numbers earlier parts
+consumed, so the port's default seed is just the harness value
+<code>0x7ea9</code> and the dot positions cannot be bit-reproduced
+against a real run.</p>
+<hr />
+<h2 id="what-is-not-covered">What is <em>not</em> covered</h2>
+<ul>
+<li>The 3D engine (<code>0x78000..0x7a210</code> + the polygon routines
+at <code>0x4d2xx..0x54xxx</code>, shared by parts b, d, e2, f, i and j)
+is ported bit-exactly (<code>web/lib3d.js</code>, see
+<code>re/parts/lib3d.md</code>) but I did not extract a listing worth
+showing from it for this document.</li>
+<li>The sprite precalculation of part F (64 frames x 16 spheres,
+RLE-encoded, 1.2 MB) and the part J stream decoder were not disassembled
+for this write-up.</li>
+<li>The decrypting stub (word-decrypt loop and INT 1 / INT 3 state
+machine) is documented in <code>re/NOTES.md</code>; it is emulated, not
+ported.</li>
+</ul>
+</body>
+</html>
